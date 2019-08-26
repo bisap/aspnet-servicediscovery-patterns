@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Consul;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
@@ -21,13 +22,15 @@ namespace SchoolAPI.Infrastructure
         private readonly ILogger<ConsulHostedService> _logger;
         private readonly IServer _server;
         private string _registrationID;
+        private IHostingEnvironment _env;
 
-        public ConsulHostedService(IConsulClient consulClient, IOptions<ConsulConfig> consulConfig, ILogger<ConsulHostedService> logger, IServer server)
+        public ConsulHostedService(IConsulClient consulClient, IOptions<ConsulConfig> consulConfig, ILogger<ConsulHostedService> logger, IServer server,  IHostingEnvironment env)
         {
             _server = server;
             _logger = logger;
             _consulConfig = consulConfig;
             _consulClient = consulClient;
+            _env = env;
 
         }
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -35,11 +38,20 @@ namespace SchoolAPI.Infrastructure
             // Create a linked token so we can trigger cancellation outside of this token's cancellation
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-            var features = _server.Features;
-            var addresses = features.Get<IServerAddressesFeature>();
-            var address = addresses.Addresses.First();
+            // commneted by apurba
+            //var features = _server.Features;
+            //var addresses = features.Get<IServerAddressesFeature>();
+            //var address = addresses.Addresses.First();
 
-            var uri = new Uri(address);
+
+            var uri = new Uri(_consulConfig.Value.ServiceAddress);
+
+            if (_env.IsProduction())
+            {
+                uri = new Uri("http://localhost:80");
+            }
+
+
             _registrationID = $"{_consulConfig.Value.ServiceID}-{uri.Port}";
 
             var registration = new AgentServiceRegistration()
